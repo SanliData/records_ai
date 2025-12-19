@@ -1,46 +1,18 @@
-﻿# -*- coding: utf-8 -*-
-"""
-ProcessStage – processes the uploaded file.
+﻿from backend.services.upap.process.text_normalizer import TextNormalizer
+from backend.services.upap.process.fuzzy_matcher import FuzzyMatcher
 
-For now this is a placeholder implementation.
-In a real system this might:
-- extract metadata
-- run ML models
-- compute audio/image features, etc.
-"""
-
-from tester.hooks import after_validation
-from typing import Any, Dict
-from pathlib import Path
-
-from backend.services.upap.engine.stage_interface import StageInterface
-
-
-class ProcessStage(StageInterface):
+class ProcessStage:
     name = "process"
 
-    def validate_input(self, payload: Dict[str, Any]) -> None:
-        file_path = payload.get("file_path")
-        if not file_path or not isinstance(file_path, str):
-            raise ValueError("ProcessStage.run() requires 'file_path'")
+    def validate_input(self, context: dict):
+        if "ocr_text" not in context:
+            raise ValueError("Missing 'ocr_text' in context")
 
-    def run(self, context: Dict[str, Any]) -> Dict[str, Any]:
-        file_path_str: str = context["file_path"]
-        file_path = Path(file_path_str)
-
-        if not file_path.exists():
-            raise FileNotFoundError(f"ProcessStage: file not found: {file_path_str}")
-
-        # Placeholder "processing"
-        # You can extend this with real logic later.
-        result = {
-            "file_path": file_path_str,
-            "status": "processed",
-            "features": {
-                "size_bytes": file_path.stat().st_size,
-            },
-        }
-
-
-        after_validation({'pipeline': 'UPAP', 'stage': 'process', 'schema': 'pending_record', 'status': 'PASS'})
-        return result
+    def run(self, context: dict) -> dict:
+        ocr_text = context.get("ocr_text", "")
+        normalized = TextNormalizer.clean(ocr_text)
+        candidates = context.get("candidate_titles", [])
+        matches = FuzzyMatcher.match(normalized, candidates)
+        context["normalized_ocr_text"] = normalized
+        context["matches"] = matches
+        return context

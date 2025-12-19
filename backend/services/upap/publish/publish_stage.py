@@ -1,33 +1,17 @@
-﻿# -*- coding: utf-8 -*-
-"""
-PublishStage – finalizes the pipeline output for external consumers.
-
-For now this creates a simple publish payload; later this can:
-- push to a message bus
-- notify another service
-- generate a public URL
-"""
-
-from typing import Any, Dict
-
-from backend.services.upap.engine.stage_interface import StageInterface
+from backend.services.upap.archive.archive_store import is_archived
 
 
-class PublishStage(StageInterface):
-    name = "publish"
+class PublishStage:
+    name = "publishstage"
 
-    def validate_input(self, payload: Dict[str, Any]) -> None:
-        if "archive_record" not in payload:
-            raise ValueError("PublishStage: 'archive_record' missing in context")
+    def run(self, context: dict):
+        record_id = context["record_id"]
 
-    def run(self, context: Dict[str, Any]) -> Dict[str, Any]:
-        archive_record: Dict[str, Any] = context["archive_record"]
+        if not is_archived(record_id):
+            raise ValueError("Record must be archived before publish")
 
-        publish_payload = {
-            "published": True,
-            "archive_id": archive_record.get("archive_id"),
-            "status": archive_record.get("status"),
-            "source": archive_record.get("source"),
+        return {
+            "status": "ok",
+            "stage": "publish",
+            "record_id": record_id
         }
-
-        return publish_payload
