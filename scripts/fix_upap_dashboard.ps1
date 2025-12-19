@@ -1,4 +1,4 @@
-﻿# FIX UPAP DASHBOARD – CANONICAL
+﻿# FIX UPAP DASHBOARD â€“ CANONICAL
 $ErrorActionPreference = "Stop"
 
 Write-Host "== UPAP Dashboard Fix Started =="

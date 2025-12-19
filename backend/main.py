@@ -4,8 +4,12 @@ from backend.api.v1.upap_upload_router import router as upap_upload_router
 from backend.api.v1.upap_process_router import router as upap_process_router
 from backend.api.v1.upap_archive_router import router as upap_archive_router
 from backend.api.v1.upap_publish_router import router as upap_publish_router
+from backend.api.v1.upap_recognition_router import router as upap_recognition_router
+from backend.api.v1.upap_system_archive_router import router as upap_system_archive_router
 from backend.api.v1.upap_dashboard_router import router as upap_dashboard_router
 from backend.api.v1.dashboard_router import router as dashboard_router
+from backend.api.v1.upap_recognition_router import router as upap_recognition_router
+
 
 
 def create_app() -> FastAPI:
@@ -18,6 +22,8 @@ def create_app() -> FastAPI:
     app.include_router(upap_process_router)
     app.include_router(upap_archive_router)
     app.include_router(upap_publish_router)
+    app.include_router(upap_recognition_router)
+    app.include_router(upap_system_archive_router)
     app.include_router(upap_dashboard_router)
     app.include_router(dashboard_router)
 
@@ -34,3 +40,5 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
+
