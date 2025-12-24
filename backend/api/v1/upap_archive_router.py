@@ -1,52 +1,57 @@
 ﻿# -*- coding: utf-8 -*-
-"""
-UPAP Archive Router
-"""
+# UTF-8, English only
 
-from typing import Dict, Any
-
-from fastapi import APIRouter, Form, HTTPException
-
-from backend.services.upap.engine.upap_engine import upap_engine
-
+from fastapi import APIRouter, Request, HTTPException
+from backend.services.upap.engine.upap_engine import get_upap_engine
 
 router = APIRouter(
-    prefix="/archive",
+    prefix="/upap/archive",
     tags=["upap-archive"],
 )
 
 
-@router.post("", summary="Archive a processed record")
-async def archive_record(
-    record_id: str = Form(..., description="Identifier of the record to archive."),
-) -> Dict[str, Any]:
-    try:
-        # Load process result from state (created during process stage)
-        state = upap_engine.get_stage("archive").store.load_state(record_id)
+@router.post("/commit")
+def commit_archive(request: Request, record_id: str):
+    """
+    Commit preview record into user archive.
+    State-changing operation → email_verified REQUIRED.
+    """
+    user_context = request.state.user
 
-        if not state or "archive_record" not in state:
-            raise HTTPException(
-                status_code=400,
-                detail="Record must be processed before archiving.",
-            )
+    if not user_context:
+        raise HTTPException(status_code=401, detail="Authentication required")
 
-        process_result = state["archive_record"].get("process_result")
-        if not process_result:
-            # Fallback: minimal archive
-            process_result = {}
+    if not user_context.get("email_verified"):
+        raise HTTPException(status_code=403, detail="Email verification required")
 
-        return upap_engine.run_stage(
-            "archive",
-            {
-                "record_id": record_id,
-                "process_result": process_result,
-            },
-        )
+    engine = get_upap_engine()
+    return engine.run_stage(
+        "archive",
+        {
+            "record_id": record_id,
+            "user_context": user_context,
+        }
+    )
 
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=str(exc),
-        )
+
+@router.get("/my")
+def list_my_archive(request: Request):
+    """
+    List records in the authenticated user's archive.
+    Read operation but still requires verified identity.
+    """
+    user_context = request.state.user
+
+    if not user_context:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    if not user_context.get("email_verified"):
+        raise HTTPException(status_code=403, detail="Email verification required")
+
+    # Minimal placeholder: real implementation will query user archive store
+    return {
+        "status": "ok",
+        "scope": "user",
+        "user_id": user_context.get("user_id"),
+        "records": [],
+    }

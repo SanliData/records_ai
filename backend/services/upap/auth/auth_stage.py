@@ -1,33 +1,35 @@
-# -*- coding: utf-8 -*-
-"""
-AuthStage – resolves user identity from email.
+# UTF-8, English only
 
-For now this is a simple in-memory example:
-in a real system this would query a User service or database.
-"""
-
-from typing import Any, Dict
-import uuid
-
-from backend.services.upap.engine.stage_interface import StageInterface
+from backend.storage.user_store import get_user_by_token
 
 
-class AuthStage(StageInterface):
+class AuthStage:
+    """
+    Auth stage.
+    Preview is allowed without authentication.
+    """
+
     name = "auth"
 
-    def validate_input(self, payload: Dict[str, Any]) -> None:
-        email = payload.get("email")
-        if not email or not isinstance(email, str):
-            raise ValueError("AuthStage.run() requires 'email' in context")
+    def run(self, payload: dict) -> dict:
+        token = payload.get("token")
 
-    def run(self, context: Dict[str, Any]) -> Dict[str, Any]:
-        email = context["email"]
+        if not token:
+            return {
+                "scope": "preview",
+                "email_verified": False,
+            }
 
-        # In a real system: lookup or create user.
-        # Here we just generate a deterministic user_id for testing.
-        user_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"upap-user:{email}"))
+        user = get_user_by_token(token)
+        if not user:
+            return {
+                "scope": "preview",
+                "email_verified": False,
+            }
 
         return {
-            "user_id": user_id,
-            "email": email,
+            "user_id": user["id"],
+            "email": user["email"],
+            "email_verified": user["email_verified"],
+            "scope": "user",
         }

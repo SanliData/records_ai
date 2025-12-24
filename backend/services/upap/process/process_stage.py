@@ -1,46 +1,19 @@
-﻿# -*- coding: utf-8 -*-
-"""
-ProcessStage – processes the uploaded file.
+﻿# UTF-8, English only
 
-For now this is a placeholder implementation.
-In a real system this might:
-- extract metadata
-- run ML models
-- compute audio/image features, etc.
-"""
+class ProcessStage:
+    """
+    Contract-only process stage (v1).
+    No AI, no OCR, no lookup.
+    """
 
-from tester.hooks import after_validation
-from typing import Any, Dict
-from pathlib import Path
-
-from backend.services.upap.engine.stage_interface import StageInterface
-
-
-class ProcessStage(StageInterface):
     name = "process"
 
-    def validate_input(self, payload: Dict[str, Any]) -> None:
-        file_path = payload.get("file_path")
-        if not file_path or not isinstance(file_path, str):
-            raise ValueError("ProcessStage.run() requires 'file_path'")
-
-    def run(self, context: Dict[str, Any]) -> Dict[str, Any]:
-        file_path_str: str = context["file_path"]
-        file_path = Path(file_path_str)
-
-        if not file_path.exists():
-            raise FileNotFoundError(f"ProcessStage: file not found: {file_path_str}")
-
-        # Placeholder "processing"
-        # You can extend this with real logic later.
-        result = {
-            "file_path": file_path_str,
-            "status": "processed",
-            "features": {
-                "size_bytes": file_path.stat().st_size,
-            },
+    def run(self, context: dict) -> dict:
+        return {
+            "status": "ok",
+            "stage": "process",
+            "record_id": context.get("record_id"),
+            "candidates": [],
+            "archive_match": False,
+            "next": "archive",
         }
-
-
-        after_validation({'pipeline': 'UPAP', 'stage': 'process', 'schema': 'pending_record', 'status': 'PASS'})
-        return result

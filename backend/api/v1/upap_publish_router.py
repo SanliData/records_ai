@@ -1,42 +1,22 @@
-﻿# -*- coding: utf-8 -*-
-"""
-UPAP Publish Router
-HTTP contract for the publish stage.
+# UTF-8, English only
 
-Note:
-UPAPEngine exposes a 'publish' stage, but the exact
-payload contract is under design. This router keeps the
-HTTP contract stable while the stage internals evolve.
-"""
-
-from typing import Any, Dict
-
-from fastapi import APIRouter, Form, HTTPException
-
-# from backend.services.upap.engine.upap_engine import upap_engine
+from fastapi import APIRouter, Request, HTTPException
+from backend.services.upap.engine.upap_engine import get_upap_engine
 
 router = APIRouter(
-    prefix="/publish",
+    prefix="/upap",
     tags=["upap-publish"],
 )
 
 
-@router.post(
-    "",
-    summary="Publish a record (stage contract under design).",
-)
-async def publish_record(
-    record_id: str = Form(..., description="Identifier of the record to publish."),
-) -> Dict[str, Any]:
-    """
-    Placeholder publish endpoint.
+@router.post("/publish")
+def publish_record(request: Request, record_id: str):
+    user = request.state.user
 
-    When the publish stage contract is finalized, this function should:
-    - Build a payload (for example {'record_id': record_id}).
-    - Call upap_engine.run_stage('publish', payload).
-    - Return the engine result.
-    """
-    raise HTTPException(
-        status_code=501,
-        detail="UPAP publish stage contract is not finalized yet.",
-    )
+    if not user:
+        raise HTTPException(401, "Authentication required")
+    if not user.get("email_verified"):
+        raise HTTPException(403, "Email verification required")
+
+    engine = get_upap_engine()
+    return engine.run_publish(record_id, user)

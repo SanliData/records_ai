@@ -1,64 +1,21 @@
-# File: backend/api/v1/archive_router.py
-# -*- coding: utf-8 -*-
-"""
-Archive Router (Legacy Bridge)
-Redirects old archive operations to UPAP ArchiveStage.
+﻿from fastapi import APIRouter, Form, HTTPException, Request
+from backend.services.upap.engine.upap_engine import engine
 
-Old behavior:
-    /archive → store final analysis record
-
-New behavior:
-    - Preserves old endpoint signature
-    - Delegates logic to UPAPEngine.archive_only()
-"""
-
-from fastapi import APIRouter, HTTPException, Form
-from backend.services.upap.engine.upap_engine import upap_engine
-import json
-
-router = APIRouter(
-    prefix="/archive",
-    tags=["Archive (Legacy Bridge)"]
-)
+router = APIRouter(prefix="/upap")
 
 
-@router.post("")
-async def legacy_archive(
-    process_result_json: str = Form(...),
-    email: str = Form(None)
+@router.post("/archive")
+def archive_record(
+    request: Request,
+    record_id: str = Form(...)
 ):
-    """
-    Legacy endpoint mapped to UPAP ArchiveStage.
+    # 🔐 Auth context MUST come from upstream (middleware / dependency)
+    context = request.state.user
 
-    Expected input:
-        process_result_json: JSON string from old frontend
+    if not context:
+        raise HTTPException(401, "Authentication required")
 
-    New behavior:
-        - Convert JSON → dict
-        - Use UPAPEngine.archive_only()
-    """
+    if not context.get("email_verified"):
+        raise HTTPException(403, "Email verification required")
 
-    try:
-        process_result = json.loads(process_result_json)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON for process_result")
-
-    auth_payload = {"email": email}
-
-    try:
-        # Stage 0: auth
-        user_ctx = upap_engine.run_auth(auth_payload)
-
-        # Stage 3: Archive directly
-        archive_record = upap_engine.run_archive_only(
-            process_result=process_result,
-            user_context=user_ctx
-        )
-
-        return {
-            "status": "ok",
-            "archive_record": archive_record
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return engine.run_archive(record_id)

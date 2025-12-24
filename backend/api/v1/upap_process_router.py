@@ -1,31 +1,20 @@
-﻿# backend/api/v1/upap_process_router.py
-# -*- coding: utf-8 -*-
+﻿# UTF-8, English only
 
-from fastapi import APIRouter
-from pydantic import BaseModel
-from datetime import datetime, timezone
+from fastapi import APIRouter, Form
+from backend.services.upap.engine.upap_engine import get_upap_engine
 
-router = APIRouter( tags=["upap"])
+router = APIRouter(
+    prefix="/upap/process",
+    tags=["upap-process"],
+)
 
-class ProcessRequest(BaseModel):
-    record_id: str
 
-@router.post("/process")
-async def process_record(payload: ProcessRequest):
-    """
-    UPAP PROCESS STAGE (v1)
-    - No AI
-    - No OCR
-    - No external lookup
-    - Contract only
-    """
-
-    return {
-        "status": "ok",
-        "stage": "process",
-        "record_id": payload.record_id,
-        "archive_match": False,
-        "candidates": [],
-        "next": "archive",
-        "timestamp": datetime.now(timezone.utc).isoformat()
-    }
+@router.post("/preview")
+def process_preview(record_id: str = Form(...)):
+    engine = get_upap_engine()
+    return engine.run_stage(
+        "process",
+        {
+            "record_id": record_id,
+        },
+    )

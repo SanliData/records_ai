@@ -1,40 +1,23 @@
-﻿# -*- coding: utf-8 -*-
-"""
-ArchiveStage
-------------
-Creates a durable archive record from a processed record_id.
-"""
+﻿# UTF-8, English only
 
-from typing import Dict, Any
+class ArchiveStage:
+    """
+    Archive commit stage.
+    Requires verified user context.
+    """
 
-from backend.services.upap.engine.stage_interface import StageInterface
-from backend.services.upap.archive.archive_store import ArchiveStore
-
-
-class ArchiveStage(StageInterface):
     name = "archive"
 
-    def __init__(self) -> None:
-        self.store = ArchiveStore()
+    def run(self, context: dict) -> dict:
+        user = context.get("user_context")
+        if not user or not user.get("email_verified"):
+            raise PermissionError("Email verification required")
 
-    def validate_input(self, payload: Dict[str, Any]) -> None:
-        if "record_id" not in payload:
-            raise ValueError("ArchiveStage requires 'record_id'")
-        if "process_result" not in payload:
-            raise ValueError("ArchiveStage requires 'process_result'")
-
-    def run(self, context: Dict[str, Any]) -> Dict[str, Any]:
-        record_id: str = context["record_id"]
-        process_result: Dict[str, Any] = context["process_result"]
-
-        archive_record = self.store.create_archive(
-            record_id=record_id,
-            process_result=process_result,
-        )
+        record_id = context["record_id"]
 
         return {
-            "stage": "archive",
             "status": "ok",
+            "stage": "archive",
             "record_id": record_id,
-            "archive_record": archive_record,
+            "user_id": user.get("user_id"),
         }
