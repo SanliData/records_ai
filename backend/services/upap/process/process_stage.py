@@ -1,18 +1,19 @@
-﻿from backend.services.upap.process.text_normalizer import TextNormalizer
-from backend.services.upap.process.fuzzy_matcher import FuzzyMatcher
+﻿# UTF-8, English only
 
 class ProcessStage:
+    """
+    Contract-only process stage (v1).
+    No AI, no OCR, no lookup.
+    """
+
     name = "process"
 
-    def validate_input(self, context: dict):
-        if "ocr_text" not in context:
-            raise ValueError("Missing 'ocr_text' in context")
-
     def run(self, context: dict) -> dict:
-        ocr_text = context.get("ocr_text", "")
-        normalized = TextNormalizer.clean(ocr_text)
-        candidates = context.get("candidate_titles", [])
-        matches = FuzzyMatcher.match(normalized, candidates)
-        context["normalized_ocr_text"] = normalized
-        context["matches"] = matches
-        return context
+        return {
+            "status": "ok",
+            "stage": "process",
+            "record_id": context.get("record_id"),
+            "candidates": [],
+            "archive_match": False,
+            "next": "archive",
+        }

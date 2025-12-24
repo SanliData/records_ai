@@ -1,24 +1,33 @@
+# UTF-8, English only
+# Records_AI v2.1.0 – UPAP Canonical Engine
+
+from datetime import datetime
+
+from backend.models.preview_record import PreviewRecord
+from backend.storage.preview_store import save_preview
+
+from backend.services.upap.auth.auth_stage import AuthStage
+from backend.services.upap.upload.upload_stage import UploadStage
+from backend.services.upap.process.process_stage import ProcessStage
 from backend.services.upap.archive.archive_stage import ArchiveStage
 from backend.services.upap.publish.publish_stage import PublishStage
-import os
 
 
 class UPAPEngine:
+    """
+    Canonical UPAP pipeline engine.
+    Single source of truth for stage execution.
+    """
+
     def __init__(self):
         self.stages = {}
 
-        # ZORUNLU ÇEKİRDEK
+        # ORDER IS BINDING
+        self.register_stage(AuthStage())
+        self.register_stage(UploadStage())
+        self.register_stage(ProcessStage())
         self.register_stage(ArchiveStage())
         self.register_stage(PublishStage())
-
-        # OPSİYONEL (ENV ile)
-        if os.getenv("UPAP_ENABLE_OCR") == "true":
-            from backend.services.upap.ocr.ocr_stage import OCRStage
-            self.register_stage(OCRStage())
-
-        if os.getenv("UPAP_ENABLE_AI") == "true":
-            from backend.services.upap.ai.ai_stage import AIStage
-            self.register_stage(AIStage())
 
     def register_stage(self, stage):
         if not hasattr(stage, "name"):
@@ -28,14 +37,53 @@ class UPAPEngine:
     def run_stage(self, stage_name: str, context: dict):
         if stage_name not in self.stages:
             raise RuntimeError(f"Stage not registered: {stage_name}")
-        return self.stages[stage_name].run(context)
 
-    def run_archive(self, record_id: str):
-        return self.run_stage("archivestage", {"record_id": record_id})
+        stage = self.stages[stage_name]
 
-    def run_publish(self, record_id: str):
-        return self.run_stage("publishstage", {"record_id": record_id})
+        # Stage contract
+        stage.validate_input(context)
+        result = stage.run(context)
+
+        # Preview persistence is allowed ONLY after upload
+        if stage_name == "upload":
+            preview = PreviewRecord(
+                preview_id=f"preview-{result['record_id']}",
+                record_id=result["record_id"],
+                canonical_image_path=result["canonical_image_url"],
+                detected_metadata={},
+                status="PREVIEW_ONLY",
+                created_at=datetime.utcnow(),
+            )
+            save_preview(preview)
+            return preview.model_dump()
+
+        return result
+
+    def run_archive(self, record_id: str, user_context: dict):
+        return self.run_stage(
+            "archive",
+            {
+                "record_id": record_id,
+                "user_context": user_context,
+            },
+        )
+
+    def run_publish(self, record_id: str, user_context: dict):
+        return self.run_stage(
+            "publish",
+            {
+                "record_id": record_id,
+                "user_context": user_context,
+            },
+        )
 
 
-# SINGLETON
-upap_engine = UPAPEngine()
+# Singleton accessor (ONLY allowed entry)
+_upap_engine_instance = None
+
+
+def get_upap_engine() -> UPAPEngine:
+    global _upap_engine_instance
+    if _upap_engine_instance is None:
+        _upap_engine_instance = UPAPEngine()
+    return _upap_engine_instance

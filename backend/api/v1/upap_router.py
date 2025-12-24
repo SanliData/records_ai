@@ -7,7 +7,6 @@ from backend.api.v1.upap_process_router import router as upap_process_router
 from backend.api.v1.upap_archive_router import router as upap_archive_router
 from backend.api.v1.upap_publish_router import router as upap_publish_router
 
-
 router = APIRouter(
     prefix="/upap",
     tags=["UPAP"],

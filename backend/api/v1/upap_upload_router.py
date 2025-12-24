@@ -1,31 +1,34 @@
-﻿from fastapi import APIRouter, UploadFile, File, Form
-from datetime import datetime
-import uuid
+﻿# UTF-8, English only
 
-router = APIRouter( tags=["UPAP"])
+from fastapi import APIRouter, UploadFile, File, HTTPException
+from PIL import UnidentifiedImageError
+
+from backend.services.image.canonical_image import normalize_to_canonical_jpeg
+from backend.services.upap.engine.upap_engine import get_upap_engine
+
+router = APIRouter(
+    prefix="/upap/upload",
+    tags=["upap-upload"],
+)
 
 
-@router.post("/upload")
-async def upload(
-    file: UploadFile = File(...),
-    email: str = Form(...)
-):
-    """
-    UPAP upload endpoint (prod-stable).
-    Cloud Run + curl -F uyumlu.
-    """
+@router.post("/preview")
+async def upload_preview(file: UploadFile = File(...)):
+    raw_bytes = await file.read()
 
-    record_id = str(uuid.uuid4())
+    try:
+        canonical = normalize_to_canonical_jpeg(raw_bytes)
+    except UnidentifiedImageError:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported or invalid image file"
+        )
 
-    content = await file.read()
-    size_bytes = len(content)
-
-    return {
-        "status": "ok",
-        "stage": "upload",
-        "record_id": record_id,
-        "filename": file.filename,
-        "email": email,
-        "size_bytes": size_bytes,
-        "timestamp": datetime.utcnow().isoformat(),
-    }
+    engine = get_upap_engine()
+    return engine.run_stage(
+        "upload",
+        {
+            "file_bytes": canonical,
+            "content_type": "image/jpeg",
+        },
+    )

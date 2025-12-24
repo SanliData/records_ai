@@ -1,71 +1,52 @@
-# -*- coding: utf-8 -*-
-"""
-UploadStage
-------------
-Stores uploaded file on disk under:
-storage/uploads/{user_id}/{filename}
+# UTF-8, English only
 
-Deploy-safe:
-- No dependency on tester / local-only modules
-"""
-
-from typing import Any, Dict
-from pathlib import Path
-import os
-
+import uuid
 from backend.services.upap.engine.stage_interface import StageInterface
-
-
-def _after_validation_hook(payload: dict) -> None:
-    """
-    Optional hook for local/testing environments.
-    Disabled by default in production / Docker.
-    """
-    if os.getenv("ENABLE_TEST_HOOKS") == "1":
-        try:
-            from tester.hooks import after_validation  # local-only
-            after_validation(payload)
-        except Exception:
-            # Never break pipeline due to hooks
-            pass
 
 
 class UploadStage(StageInterface):
     """
-    UPAP Upload Stage
+    Upload stage.
+    Canonical JPEG ONLY enters the system.
     """
+
     name = "upload"
 
-    def validate_input(self, payload: Dict[str, Any]) -> None:
-        if "file_bytes" not in payload:
-            raise ValueError("UploadStage.run() requires 'file_bytes'")
-        if "filename" not in payload:
-            raise ValueError("UploadStage.run() requires 'filename'")
-        if "user_id" not in payload:
-            raise ValueError("UploadStage.run() requires 'user_id'")
+    def validate_input(self, context: dict) -> None:
+        """
+        Validate input payload for upload stage.
 
-    def run(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        Requirements:
+        - file_bytes must exist and be bytes
+        - content_type must be 'image/jpeg'
+
+        This method satisfies the abstract contract
+        defined in StageInterface.
+        """
+        if "file_bytes" not in context:
+            raise ValueError("Missing file_bytes in upload context")
+
+        if not isinstance(context["file_bytes"], (bytes, bytearray)):
+            raise TypeError("file_bytes must be bytes")
+
+        if context.get("content_type") != "image/jpeg":
+            raise ValueError("UploadStage accepts only canonical JPEG")
+
+    def run(self, context: dict) -> dict:
         file_bytes: bytes = context["file_bytes"]
-        filename: str = context["filename"]
-        user_id: str = context["user_id"]
+        content_type: str = context["content_type"]
 
-        base_dir = Path("storage") / "uploads" / user_id
-        base_dir.mkdir(parents=True, exist_ok=True)
+        # Defensive check (already validated, but safe)
+        if content_type != "image/jpeg":
+            raise ValueError("UploadStage accepts only canonical JPEG")
 
-        target_path = base_dir / filename
-        with target_path.open("wb") as f:
-            f.write(file_bytes)
+        record_id = str(uuid.uuid4())
 
-        _after_validation_hook({
-            "pipeline": "UPAP",
-            "stage": "upload",
-            "schema": "pending_record",
-            "status": "PASS",
-        })
+        # Storage is abstracted away (preview store)
+        canonical_url = f"preview://{record_id}.jpg"
 
         return {
-            "saved_to": str(target_path),
+            "record_id": record_id,
+            "canonical_image_url": canonical_url,
             "size_bytes": len(file_bytes),
-            "user_id": user_id,
-            "filename": filename,
         }

@@ -1,0 +1,206 @@
+openapi: 3.0.3
+
+info:
+  title: Records_AI UPAP API
+  description: |
+    Official API for the Records_AI platform.
+    All operations strictly follow the UPAP pipeline:
+    Upload → Archive → Process → Publish.
+
+    No automatic progression is allowed.
+    Each stage must be triggered explicitly.
+  version: "1.0.0"
+
+servers:
+  - url: https://api.records-ai.com
+    description: Production server
+
+security:
+  - ApiKeyAuth: []
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+
+  schemas:
+    RecordResponse:
+      type: object
+      properties:
+        record_id:
+          type: string
+          format: uuid
+        stage:
+          type: string
+          enum: [uploaded, archived, processed, published]
+        message:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+
+paths:
+
+  /upap/upload:
+    post:
+      summary: Upload a file to Records_AI
+      description: |
+        First step of the UPAP pipeline.
+        Accepts a file and optional metadata.
+      operationId: uploadRecord
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                metadata:
+                  type: string
+      responses:
+        "200":
+          description: Upload successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecordResponse"
+        "400":
+          description: Invalid upload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /upap/archive:
+    post:
+      summary: Archive an uploaded record
+      description: |
+        Second UPAP stage.
+        Can only be triggered after a successful Upload.
+      operationId: archiveRecord
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - record_id
+              properties:
+                record_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: Archive successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecordResponse"
+        "409":
+          description: UPAP violation (Upload not completed)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /upap/process:
+    post:
+      summary: Process an archived record
+      description: |
+        Third UPAP stage.
+        Performs OCR / AI / analysis based on record type.
+      operationId: processRecord
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - record_id
+              properties:
+                record_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: Processing completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecordResponse"
+        "409":
+          description: UPAP violation (Archive not completed)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /upap/publish:
+    post:
+      summary: Publish a processed record
+      description: |
+        Final UPAP stage.
+        Makes the record externally visible.
+      operationId: publishRecord
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - record_id
+              properties:
+                record_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: Publish successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecordResponse"
+        "409":
+          description: UPAP violation (Process not completed)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /upap/status/{record_id}:
+    get:
+      summary: Get current UPAP status of a record
+      operationId: getRecordStatus
+      parameters:
+        - name: record_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Current record status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecordResponse"
+        "404":
+          description: Record not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"

@@ -1,18 +1,18 @@
-# -*- coding: utf-8 -*-
+# backend/models/user.py
+# UTF-8, English only
 
-class User:
-    def __init__(self, user_id: str, email: str, created_at: str, profile: dict, token: str):
-        self.id = user_id
-        self.email = email
-        self.created_at = created_at
-        self.profile = profile
-        self.token = token
+from pydantic import BaseModel, EmailStr
+from datetime import datetime
+from typing import Optional
 
-    def to_dict(self):
-        return {
-            "id": self.id,
-            "email": self.email,
-            "created_at": self.created_at,
-            "profile": self.profile,
-            "token": self.token
-        }
+
+class User(BaseModel):
+    id: str
+    email: EmailStr
+    password_hash: str
+
+    # 🔒 Archive / Publish gate
+    email_verified: bool = False
+
+    created_at: datetime
+    last_login_at: Optional[datetime] = None

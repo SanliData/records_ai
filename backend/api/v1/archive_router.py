@@ -1,13 +1,21 @@
-﻿from fastapi import APIRouter
-from backend.services.upap.process.text_normalizer import TextNormalizer
-from backend.services.upap.process.fuzzy_matcher import FuzzyMatcher
+﻿from fastapi import APIRouter, Form, HTTPException, Request
+from backend.services.upap.engine.upap_engine import engine
 
-router = APIRouter()
+router = APIRouter(prefix="/upap")
 
-@router.post("/search")
-def search_archive(query: str):
-    # Basit örnek: arsiv kayitlarini bir listeden okuyoruz (gerçek sistemde DB olacak)
-    records = ["pink floyd the wall", "beatles abbey road", "nirvana nevermind", "radiohead ok computer"]
-    query_clean = TextNormalizer.clean(query)
-    results = FuzzyMatcher.match(query_clean, records)
-    return {"query": query, "results": results}
+
+@router.post("/archive")
+def archive_record(
+    request: Request,
+    record_id: str = Form(...)
+):
+    # 🔐 Auth context MUST come from upstream (middleware / dependency)
+    context = request.state.user
+
+    if not context:
+        raise HTTPException(401, "Authentication required")
+
+    if not context.get("email_verified"):
+        raise HTTPException(403, "Email verification required")
+
+    return engine.run_archive(record_id)
