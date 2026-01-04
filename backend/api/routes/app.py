@@ -1,9 +1,24 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Header
 from uuid import uuid4
 from typing import Optional
 
 router = APIRouter()
 
+# -------------------------------------------------------------------
+# Simple Bearer Token Auth (ChatGPT App MVP)
+# -------------------------------------------------------------------
+
+SERVICE_TOKEN = "recordsai-chatgpt-app-token"
+
+
+def require_token(authorization: Optional[str]):
+    if authorization != f"Bearer {SERVICE_TOKEN}":
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
+# -------------------------------------------------------------------
+# ChatGPT App Endpoints
+# -------------------------------------------------------------------
 
 @router.post("/upload")
 async def app_upload(
@@ -11,20 +26,27 @@ async def app_upload(
     title: Optional[str] = None,
     artist: Optional[str] = None,
     email: Optional[str] = None,
+    authorization: Optional[str] = Header(default=None),
 ):
     """
     ChatGPT App entrypoint.
-    Receives an image and optional metadata.
-    Starts async processing via UPAP pipeline (placeholder).
+
+    - Receives vinyl cover image + optional metadata
+    - Creates a PendingRecord (future)
+    - Triggers UPAP pipeline / async worker (future)
     """
 
-    # 1. Generate record ID (source of truth will be DB later)
+    # --- Auth ---
+    require_token(authorization)
+
+    # --- Record ID (DB will become source of truth later) ---
     record_id = str(uuid4())
 
-    # 2. (Placeholder) Here you will:
-    # - Save image
-    # - Create PendingRecord
-    # - Trigger UPAP pipeline / worker
+    # --- PLACEHOLDER PIPELINE ---
+    # TODO:
+    # - Save image to storage
+    # - Create PendingRecord in DB
+    # - Trigger UPAP async pipeline / worker
 
     return {
         "record_id": record_id,
@@ -35,18 +57,28 @@ async def app_upload(
 
 
 @router.get("/status/{record_id}")
-def app_status(record_id: str):
+def app_status(
+    record_id: str,
+    authorization: Optional[str] = Header(default=None),
+):
     """
     ChatGPT App polling endpoint.
-    ChatGPT will repeatedly call this endpoint
-    until stage == PUBLISHED or FAILED.
+
+    ChatGPT will repeatedly call this endpoint until:
+    - stage == PUBLISHED
+    - or stage == FAILED
     """
 
-    # 1. (Placeholder) Fetch record state from DB
-    # For now we return a deterministic mock response
+    # --- Auth ---
+    require_token(authorization)
 
     if not record_id:
         raise HTTPException(status_code=400, detail="record_id is required")
+
+    # --- PLACEHOLDER STATE ---
+    # TODO:
+    # - Fetch real state from DB
+    # - Return final result when published
 
     return {
         "record_id": record_id,
